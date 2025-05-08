@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: bitnami/postgresql:latest
+    container_name: postgres_container_userhistory
+    environment:
+      - POSTGRESQL_USERNAME=userhistory
+      - POSTGRESQL_PASSWORD=userhistory@2025
+      - POSTGRESQL_DATABASE=userhistory_api
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/bitnami/postgresql
+
+volumes:
+  postgres_data:
+    driver: local
