@@ -18,7 +18,7 @@ async function bootstrap() {
 
   // Configuração Swagger
   const config = new DocumentBuilder()
-    .setTitle('API da Aplicação')
+    .setTitle('API UserHistory')
     .setDescription('Documentação automática das rotas')
     .setVersion('1.0')
     .addBearerAuth()
