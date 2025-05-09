@@ -1,98 +1,211 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+Teste Técnico - Gerenciamento de Usuários com NestJS
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Uma aplicação backend construída com NestJS para cadastro, gerenciamento e autenticação de usuários com controle de permissões.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Descrição
+Este projeto é a implementação do backend para um teste técnico de desenvolvedor full-stack, focado na construção de uma API para cadastro e gerenciamento de usuários com controle de acesso. A aplicação permite:
 
-## Description
+Autenticação de usuários via JWT.
+CRUD de usuários (criar, listar, visualizar, atualizar, excluir).
+Controle de permissões baseado em níveis de acesso (Admin, Gerente, Comum) usando CASL.
+Armazenamento seguro de dados no PostgreSQL com TypeORM, incluindo senhas criptografadas com bcrypt.
+Validações robustas (ex.: email único) e mensagens de erro claras.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+O projeto segue uma arquitetura modular com NestJS, utilizando boas práticas como validação de DTOs, aliases para imports, e configuração de ambiente com .env. A estrutura está preparada para integração com um frontend em React/Next.js (a ser implementado).
+Requisitos do Teste Técnico
 
-## Project setup
+Entidade User: Campos id, name, email (único), password (criptografado), role (admin, gerente, comum).
+Autenticação: Login com JWT, token com expiração (1 hora).
+Permissões:
+Admin: Pode criar, editar (incluindo role), visualizar e excluir qualquer usuário.
+Gerente: Pode visualizar todos os usuários e editar name, email, password (não role).
+Comum: Só pode visualizar e editar seu próprio perfil.
 
-```bash
-$ npm install
-```
+Segurança: Senhas criptografadas, validação de email único, erros claros (ex.: 400 para email duplicado, 401 para não autenticado, 403 para permissões insuficientes).
+Cenários de Teste:
+Usuário não autenticado acessa /users → 401 Unauthorized.
+Usuário comum acessa listagem de usuários → 403 Forbidden.
+Gerente altera role → 403 Forbidden.
+Admin edita usuário → 200 OK.
+Cadastro com email duplicado → 400 Email already in use.
 
-## Compile and run the project
+Estrutura do Projeto
+A aplicação segue uma arquitetura modular, com os seguintes módulos e pastas:
+meu-projeto/
+├── src/
+│ ├── auth/
+│ │ ├── dtos/
+│ │ │ └── login.dto.ts # DTO para login
+│ │ ├── auth.controller.ts # Endpoints de autenticação
+│ │ ├── auth.service.ts # Lógica de autenticação
+│ │ ├── auth.module.ts # Módulo de autenticação
+│ │ ├── jwt-auth.guard.ts # Guarda JWT
+│ │ └── jwt.strategy.ts # Estratégia JWT
+│ ├── users/
+│ │ ├── dtos/
+│ │ │ ├── create-user.dto.ts # DTO para criar usuário
+│ │ │ └── update-user.dto.ts # DTO para atualizar usuário
+│ │ ├── user.entity.ts # Entidade User
+│ │ ├── users.controller.ts # Endpoints do CRUD
+│ │ ├── users.service.ts # Lógica do CRUD
+│ │ └── users.module.ts # Módulo de usuários
+│ ├── shared/
+│ │ ├── abilities.ts # Regras de permissão CASL
+│ │ ├── casl.guard.ts # Guarda de permissões
+│ │ └── shared.module.ts # Módulo compartilhado
+│ ├── config/
+│ │ ├── env.validation.ts # Validação de variáveis de ambiente
+│ │ └── configuration.ts # Configurações gerais
+│ ├── app.module.ts # Módulo raiz
+│ └── main.ts # Ponto de entrada
+├── .env # Variáveis de ambiente
+├── docker-compose.yml # Configuração do PostgreSQL
+├── .eslintrc.js # Configuração do ESLint
+├── .eslintignore # Arquivos ignorados pelo ESLint
+├── .prettierrc # Configuração do Prettier
+├── tsconfig.json # Configuração do TypeScript
+├── package.json # Dependências e scripts
+└── README.md # Documentação
 
-```bash
-# development
-$ npm run start
+Módulos Implementados
 
-# watch mode
-$ npm run start:dev
+UsersModule: Gerencia o CRUD de usuários, com entidade User e validações (email único, senhas criptografadas).
+AuthModule: Implementa autenticação com JWT (endpoint /auth/login, token com expiração).
+SharedModule: Define regras de permissão com CASL e um CaslGuard para proteger rotas.
 
-# production mode
-$ npm run start:prod
-```
+Pré-requisitos
 
-## Run tests
+Node.js (versão 18 ou superior)
+npm (versão 9 ou superior)
+Docker e Docker Compose (para rodar o PostgreSQL)
+Git (opcional, para controle de versão)
 
-```bash
-# unit tests
-$ npm run test
+Instalação
 
-# e2e tests
-$ npm run test:e2e
+Clone o repositório (se aplicável):
+git clone https://github.com/marden-melo/user-history-api.git
+cd user-history-api
 
-# test coverage
-$ npm run test:cov
-```
+Instale as dependências:
+npm install
 
-## Deployment
+As dependências incluem:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Produção: @nestjs/core, @nestjs/common, @nestjs/platform-express, typeorm, pg, @nestjs/typeorm, @nestjs/jwt, @nestjs/passport, passport, passport-jwt, bcrypt, @casl/ability, class-validator, class-transformer, @nestjs/config, module-alias.
+Desenvolvimento: jest, @nestjs/testing, ts-jest, @types/jest, @types/node, @types/bcrypt, eslint, prettier, eslint-config-prettier, eslint-plugin-prettier, @typescript-eslint/parser, @typescript-eslint/eslint-plugin.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Configure o arquivo .env:Crie um arquivo .env na raiz do projeto com o seguinte conteúdo:
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_NAME=myapp
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=1h
+PORT=3000
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+Inicie o PostgreSQL com Docker:
+docker-compose up -d
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Compilar e Executar
 
-## Resources
+# Modo de desenvolvimento (com hot-reload)
 
-Check out a few resources that may come in handy when working with NestJS:
+npm run start:dev
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Modo de produção
 
-## Support
+npm run build
+npm run start:prod
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+A aplicação estará disponível em http://localhost:3000.
+Endpoints da API
+Autenticação
 
-## Stay in touch
+POST /auth/login
+Corpo: { "email": "user@example.com", "password": "password123" }
+Resposta: { "access_token": "jwt-token" }
+Erro: 401 Unauthorized (credenciais inválidas)
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Usuários
 
-## License
+POST /users (cria usuário, exige autenticação e permissão de admin)
+Corpo: { "name": "John Doe", "email": "john@example.com", "password": "password123", "role": "comum" }
+Resposta: { "id": 1, "name": "John Doe", "email": "john@example.com", "role": "comum" }
+Erros: 400 (email duplicado), 401 (não autenticado), 403 (sem permissão)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+GET /users (lista usuários, exige autenticação e permissão de admin/gerente)
+Resposta: [{ "id": 1, "name": "John Doe", "email": "john@example.com", "role": "comum" }, ...]
+Erros: 401, 403
+
+GET /users/:id (visualiza usuário, exige autenticação e permissão)
+Resposta: { "id": 1, "name": "John Doe", "email": "john@example.com", "role": "comum" }
+Erros: 401, 403
+
+PATCH /users/:id (atualiza usuário, exige autenticação e permissão)
+Corpo: { "name": "Jane Doe", "email": "jane@example.com" }
+Resposta: { "id": 1, "name": "Jane Doe", "email": "jane@example.com", "role": "comum" }
+Erros: 400, 401, 403
+
+DELETE /users/:id (exclui usuário, exige autenticação e permissão de admin)
+Resposta: (vazio, status 204)
+Erros: 401, 403
+
+Testes
+Os testes unitários e de integração estão em desenvolvimento. Para executar os testes existentes:
+
+# Testes unitários
+
+npm run test
+
+# Testes com cobertura
+
+npm run test:cov
+
+Linting e Formatação
+O projeto usa ESLint e Prettier para manter a consistência do código.
+
+# Verificar linting
+
+npm run lint
+
+# Corrigir problemas de linting
+
+npm run lint:fix
+
+# Formatar código
+
+npm run format
+
+Deploy
+Para deploy em produção, siga as recomendações do NestJS Deployment. Algumas sugestões:
+
+Desative synchronize: true no TypeORM e use migrações.
+Configure um provedor de hospedagem (ex.: AWS, Heroku).
+Use o NestJS Mau para deploy simplificado no AWS:npm install -g @nestjs/mau
+mau deploy
+
+Próximos Passos
+
+Testes: Implementar testes unitários e de integração para UsersService, AuthService, e endpoints.
+Frontend: Desenvolver a interface com React/Next.js, Tailwind CSS, e Context API, incluindo:
+Login e armazenamento de JWT.
+Listagem de usuários (admin/gerente).
+Formulários de cadastro/edição com validação.
+Restrições visuais com CASL.
+
+Documentação: Adicionar Swagger para documentação da API.
+Segurança: Configurar logging de erros e monitoramento.
+
+Recursos
+
+NestJS Documentation
+TypeORM Documentation
+CASL Documentation
+NestJS Discord
+NestJS Courses
+
+Suporte
+Este projeto é um teste técnico e não possui suporte oficial. Para dúvidas, consulte a documentação do NestJS ou entre em contato com a comunidade no Discord.
+Licença
+Este projeto é licenciado sob a MIT License.
