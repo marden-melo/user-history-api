@@ -12,8 +12,8 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/userDTO';
 import { User } from './users.entity';
-import { CaslGuard } from '@shared/cast-guard';
 import { JwtAuthGuard } from '@auth/jwt-auth.guard';
+import { CaslGuard } from '@auth/guards/casl.guard';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
