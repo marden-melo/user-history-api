@@ -3,15 +3,14 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { UsersService } from '../user/users.service';
-import { User } from '../user/users.entity';
+import { User, UserRole } from '../user/users.entity';
 import { UnauthorizedException } from '@shared/errors/exceptions/unauthorized.exception';
 
 interface JwtPayload {
   sub: string;
   email: string;
-  role: string;
+  role: UserRole;
 }
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
@@ -32,6 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) {
       throw new UnauthorizedException('Invalid token');
     }
-    return { id: user.id, email: user.email, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserRole,
+    };
   }
 }

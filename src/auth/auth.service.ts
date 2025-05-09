@@ -1,15 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@shared/errors/exceptions/unauthorized.exception';
-import { User, UserRole } from '../user/users.entity';
-import { UsersService } from '../user/users.service';
+import * as bcrypt from 'bcrypt';
 
-interface JwtPayload {
-  email: string;
-  sub: string;
-  role: UserRole;
-}
+import { plainToClass } from 'class-transformer';
+import { UsersService } from '../user/users.service';
+import { User } from 'user/users.entity';
+import { UserResponseDto } from 'user/dto/userDTO';
 
 @Injectable()
 export class AuthService {
@@ -18,26 +14,28 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(
-    email: string,
-    password: string,
-  ): Promise<Omit<User, 'password'>> {
+  async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByEmail(email);
     if (user && (await bcrypt.compare(password, user.password))) {
-      const { password: _, ...result } = user;
-      return result;
+      return user;
     }
-    throw new UnauthorizedException('Invalid credentials');
+    return null;
   }
 
-  login(user: Omit<User, 'password'>): { access_token: string } {
-    const payload: JwtPayload = {
-      email: user.email,
-      sub: user.id,
-      role: user.role,
-    };
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ access_token: string; user: UserResponseDto }> {
+    const user = await this.validateUser(email, password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+    const userResponse = plainToClass(UserResponseDto, user);
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      user: userResponse,
     };
   }
 }

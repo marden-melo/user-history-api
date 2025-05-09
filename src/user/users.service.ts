@@ -6,8 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Exclude } from 'class-transformer';
 import { User } from './users.entity';
-import { CreateUserDto, UpdateUserDto } from './dto/userDTO';
+import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/userDTO';
+import { plainToClass } from 'class-transformer';
 
 @Injectable()
 export class UsersService {
@@ -16,7 +18,7 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async create(userData: CreateUserDto): Promise<User> {
+  async create(userData: CreateUserDto): Promise<UserResponseDto> {
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
       throw new BadRequestException('Email already in use');
@@ -26,33 +28,38 @@ export class UsersService {
       ...userData,
       password: hashedPassword,
     });
-    return this.usersRepository.save(user);
+    const savedUser = await this.usersRepository.save(user);
+    return plainToClass(UserResponseDto, savedUser);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.usersRepository.find();
+  async findAll(): Promise<UserResponseDto[]> {
+    const users = await this.usersRepository.find();
+    return plainToClass(UserResponseDto, users);
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: string): Promise<UserResponseDto> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return plainToClass(UserResponseDto, user);
   }
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async update(id: string, updateData: UpdateUserDto): Promise<User> {
-    await this.findById(id);
+  async update(
+    id: string,
+    updateData: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.findById(id);
 
     if (updateData.password) {
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
-    if (updateData.email) {
+    if (updateData.email && updateData.email !== user.email) {
       const existingUser = await this.findByEmail(updateData.email);
       if (existingUser && existingUser.id !== id) {
         throw new BadRequestException('Email already in use');

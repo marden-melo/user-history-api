@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer';
 import {
   IsString,
   IsEmail,
@@ -44,4 +45,14 @@ export class UpdateUserDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+}
+
+export class UserResponseDto {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+
+  @Exclude()
+  password: string;
 }

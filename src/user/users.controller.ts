@@ -1,30 +1,31 @@
 import {
   Controller,
-  Get,
   Post,
+  Body,
+  Get,
+  Param,
   Patch,
   Delete,
-  Body,
-  Param,
   UseGuards,
   SetMetadata,
+  HttpCode,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './dto/userDTO';
-import { User } from './users.entity';
-import { JwtAuthGuard } from '@auth/jwt-auth.guard';
+import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/userDTO';
 import { CaslGuard } from '@auth/guards/casl.guard';
+import { NotFoundException } from '@shared/errors/exceptions/not-found.exception';
+import { JwtAuthGuard } from '@auth/jwt-auth.guard';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @UseGuards(CaslGuard)
   @SetMetadata('action', 'create')
   @SetMetadata('subject', 'User')
-  async create(@Body() userData: CreateUserDto): Promise<User> {
+  async create(@Body() userData: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(userData);
   }
 
@@ -32,7 +33,7 @@ export class UsersController {
   @UseGuards(CaslGuard)
   @SetMetadata('action', 'read')
   @SetMetadata('subject', 'User')
-  async findAll(): Promise<User[]> {
+  async findAll(): Promise<UserResponseDto[]> {
     return this.usersService.findAll();
   }
 
@@ -40,8 +41,12 @@ export class UsersController {
   @UseGuards(CaslGuard)
   @SetMetadata('action', 'read')
   @SetMetadata('subject', 'User')
-  async findOne(@Param('id') id: string): Promise<User> {
-    return this.usersService.findById(id);
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
   }
 
   @Patch(':id')
@@ -52,15 +57,24 @@ export class UsersController {
   async update(
     @Param('id') id: string,
     @Body() updateData: UpdateUserDto,
-  ): Promise<User> {
-    return this.usersService.update(id, updateData);
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.update(id, updateData);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
   }
 
   @Delete(':id')
   @UseGuards(CaslGuard)
   @SetMetadata('action', 'delete')
   @SetMetadata('subject', 'User')
+  @HttpCode(204)
   async delete(@Param('id') id: string): Promise<void> {
-    return this.usersService.delete(id);
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.usersService.delete(id);
   }
 }
