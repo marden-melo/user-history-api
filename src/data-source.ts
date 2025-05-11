@@ -12,7 +12,6 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD ?? 'userhistory@2025',
   database: process.env.DB_NAME ?? 'userhistory_api',
   entities: ['dist/**/*.entity.js'],
-  migrations: ['dist/migrations/*.js'],
-  migrationsTableName: 'migrations',
+  migrations: ['dist/@migrations/*.js'],
   migrationsRun: false,
 });

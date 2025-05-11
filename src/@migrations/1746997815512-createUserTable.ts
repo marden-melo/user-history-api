@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class $npmConfigName1746741442848 implements MigrationInterface {
-  name = ' $npmConfigName1746741442848';
+export class CreateUserTable1746997815512 implements MigrationInterface {
+  name = 'CreateUserTable1746997815512';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
