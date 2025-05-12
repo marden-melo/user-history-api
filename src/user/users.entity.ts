@@ -28,12 +28,12 @@ export class User {
   })
   role: UserRole;
 
-  @Column({ nullable: true })
-  refreshTokenHash: string;
+  @Column({ type: 'varchar', nullable: true })
+  refreshTokenHash: string | null;
 
-  @Column({ nullable: true })
-  resetPasswordToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  resetPasswordToken: string | null;
 
-  @Column({ nullable: true })
-  resetPasswordExpires: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  resetPasswordExpires: Date | null;
 }

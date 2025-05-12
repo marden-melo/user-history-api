@@ -28,12 +28,16 @@ export class UsersService {
       password: hashedPassword,
     });
     const savedUser = await this.usersRepository.save(user);
-    return plainToClass(UserResponseDto, savedUser);
+    return plainToClass(UserResponseDto, savedUser, {
+      excludeExtraneousValues: true,
+    });
   }
 
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersRepository.find();
-    return plainToClass(UserResponseDto, users);
+    return plainToClass(UserResponseDto, users, {
+      excludeExtraneousValues: true,
+    });
   }
 
   async findById(id: string): Promise<UserResponseDto> {
@@ -41,7 +45,9 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return plainToClass(UserResponseDto, user);
+    return plainToClass(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -83,11 +89,16 @@ export class UsersService {
 
     await this.usersRepository.update(id, updateData);
     const updatedUser = await this.usersRepository.findOne({ where: { id } });
-    return plainToClass(UserResponseDto, updatedUser!);
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+    return plainToClass(UserResponseDto, updatedUser, {
+      excludeExtraneousValues: true,
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await this.findById(id);
+    const user = await this.findById(id);
     await this.usersRepository.delete(id);
   }
 }
