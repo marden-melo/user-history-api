@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './user/users.module';
 import { AuthModule } from '@auth/auth.module';
 import { SeedService } from '@shared/seeds/seed.service';
+import { MailModule } from '@shared/email/mail.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SeedService } from '@shared/seeds/seed.service';
     }),
     UsersModule,
     AuthModule,
+    MailModule,
   ],
   providers: [SeedService],
 })

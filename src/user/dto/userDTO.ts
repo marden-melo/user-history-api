@@ -6,9 +6,10 @@ import {
   MinLength,
   Matches,
   IsOptional,
+  IsDate,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from 'user/users.entity';
+import { UserRole } from '../users.entity';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -54,6 +55,21 @@ export class UpdateUserDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  refreshTokenHash?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  resetPasswordToken?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDate()
+  resetPasswordExpires?: Date;
 }
 
 export class UserResponseDto {
@@ -66,9 +82,17 @@ export class UserResponseDto {
   @ApiProperty()
   email: string;
 
-  @ApiProperty()
-  role: string;
-
+  @ApiProperty({ enum: UserRole })
+  role: UserRole;
   @Exclude()
   password: string;
+
+  @Exclude()
+  refreshTokenHash: string;
+
+  @Exclude()
+  resetPasswordToken: string;
+
+  @Exclude()
+  resetPasswordExpires: Date;
 }

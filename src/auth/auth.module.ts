@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthService } from '@auth/auth.service';
-import { AuthController } from '@auth/auth.controller';
-import { JwtStrategy } from '@auth/jwt.strategy';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { JwtStrategy } from './jwt.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { UsersModule } from 'user/users.module';
+import { UsersModule } from '../user/users.module';
+import { MailModule } from '@shared/email/mail.module';
 
 @Module({
   imports: [
     UsersModule,
+    MailModule,
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
