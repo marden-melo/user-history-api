@@ -8,6 +8,7 @@ export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete';
 @Injectable()
 export class CaslAbilityFactory {
   createForUser(user: Pick<User, 'id' | 'role'>) {
+    console.log('CaslAbilityFactory - Usuário:', user);
     const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
 
     if (user.role === UserRole.ADMIN) {
@@ -43,6 +44,8 @@ export class CaslAbilityFactory {
       );
     }
 
-    return build();
+    const ability = build();
+    console.log('CaslAbilityFactory - Habilidades:', ability.rules);
+    return ability;
   }
 }

@@ -25,10 +25,14 @@ export class CaslGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
-    console.log('Usuário no CaslGuard:', user); // Log para depuração
+    console.log('Usuário no CaslGuard:', user);
 
     if (!user) {
       throw new ForbiddenException('Usuário não autenticado');
+    }
+    if (!user.role) {
+      console.log('CaslGuard - Role indefinido para usuário:', user);
+      throw new ForbiddenException('Role do usuário não definido');
     }
 
     const ability = this.caslAbilityFactory.createForUser(user);
@@ -37,37 +41,54 @@ export class CaslGuard implements CanActivate {
       context.getHandler().name;
     const subject =
       this.reflector.get<string>('subject', context.getHandler()) || 'User';
-    const fields = this.reflector.get<string[]>('fields', context.getHandler());
 
     console.log('Verificando permissão:', {
       action,
       subject,
       userRole: user.role,
-    }); // Log adicional
+      userId: user.id,
+    });
 
-    // Validação para GET /users/:id
+    // Read single user
     if (action === 'read' && subject === 'User' && request.params.id) {
       const targetUser = await this.usersService.findById(request.params.id);
       if (!targetUser) {
         throw new NotFoundException('User not found');
       }
-      return ability.can(action, { ...targetUser, __entity: 'User' });
+      const canRead = ability.can(action, { ...targetUser, __entity: 'User' });
+      console.log('Permissão para leitura de usuário:', {
+        canRead,
+        targetUserId: targetUser.id,
+      });
+      return canRead;
     }
 
-    // Validação para PATCH /users/:id
+    // Update user
     if (action === 'update' && subject === 'User' && request.params.id) {
       const targetUser = await this.usersService.findById(request.params.id);
       if (!targetUser) {
         throw new NotFoundException('User not found');
       }
       const updateData: UpdateUserDto = request.body;
+
+      // Check permission for each field
       for (const field of Object.keys(updateData) as (keyof UpdateUserDto)[]) {
-        if (fields && !fields.includes(field)) {
-          throw new ForbiddenException(
-            `Ação 'update' no campo '${field}' de '${subject}' não permitida`,
-          );
-        }
-        if (!ability.can(action, { ...targetUser, __entity: 'User' }, field)) {
+        // Check field-level permission
+        const canUpdateField = ability.can('update', subject, field);
+        // For regular users, restrict to their own profile
+        const canUpdate =
+          user.role === 'user'
+            ? canUpdateField && user.id === targetUser.id
+            : canUpdateField;
+        console.log(`Verificando campo '${field}':`, {
+          canUpdate,
+          canUpdateField,
+          targetUserId: targetUser.id,
+          userId: user.id,
+          userRole: user.role,
+        });
+        if (!canUpdate) {
+          console.log(`Permissão negada para o campo '${field}'`);
           throw new ForbiddenException(
             `Ação 'update' no campo '${field}' de '${subject}' não permitida`,
           );
@@ -76,14 +97,19 @@ export class CaslGuard implements CanActivate {
       return true;
     }
 
-    // Validação para GET /users (listagem)
+    // List users
     if (action === 'read' && subject === 'User' && !request.params.id) {
-      return ability.can(action, subject);
+      const canRead = ability.can(action, subject);
+      console.log('Permissão para listagem:', { userRole: user.role, canRead });
+      if (!canRead) {
+        throw new ForbiddenException("Ação 'read' em 'User' não permitida");
+      }
+      return true;
     }
 
-    // Validação para POST /users e DELETE /users/:id
+    // Create or delete
     const canPerform = ability.can(action, subject);
-    console.log('Permissão concedida:', canPerform); // Log para resultado
+    console.log('Permissão concedida:', { action, subject, canPerform });
     if (canPerform) {
       return true;
     }

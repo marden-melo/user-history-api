@@ -64,7 +64,6 @@ export class UsersController {
   @UseGuards(CaslGuard)
   @SetMetadata('action', 'update')
   @SetMetadata('subject', 'User')
-  @SetMetadata('fields', ['name', 'email', 'password', 'role'])
   @ApiOperation({ summary: 'Atualizar usuário' })
   @ApiResponse({ status: 200, type: UserResponseDto })
   async update(

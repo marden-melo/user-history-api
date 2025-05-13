@@ -11,6 +11,7 @@ interface JwtPayload {
   email: string;
   role: UserRole;
 }
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
