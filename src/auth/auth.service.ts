@@ -13,28 +13,8 @@ import { UserResponseDto } from '../user/dto/userDTO';
 import { v4 as uuidv4 } from 'uuid';
 import { MailService } from '@shared/email/mail.service';
 
-interface IAuthService {
-  validateUser(email: string, password: string): Promise<User | null>;
-  login(
-    email: string,
-    password: string,
-  ): Promise<{
-    access_token: string;
-    refresh_token: string;
-    user: UserResponseDto;
-  }>;
-  refreshToken(refreshToken: string): Promise<{
-    access_token: string;
-    refresh_token: string;
-  }>;
-  generateRefreshToken(user: User): Promise<string>;
-  invalidateRefreshToken(userId: string): Promise<void>;
-  forgotPassword(email: string): Promise<void>;
-  resetPassword(token: string, newPassword: string): Promise<void>;
-}
-
 @Injectable()
-export class AuthService implements IAuthService {
+export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -66,33 +46,14 @@ export class AuthService implements IAuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
     const refresh_token = await this.generateRefreshToken(user);
-    const userResponse = plainToClass(UserResponseDto, user);
+    const userResponse = plainToClass(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
     return {
       access_token,
       refresh_token,
       user: userResponse,
     };
-  }
-
-  async refreshToken(refreshToken: string): Promise<{
-    access_token: string;
-    refresh_token: string;
-  }> {
-    const user = await this.usersService.findByRefreshToken(refreshToken);
-    if (!user || !user.refreshTokenHash) {
-      throw new UnauthorizedException('Token de renovação inválido ou ausente');
-    }
-
-    const isValid = await bcrypt.compare(refreshToken, user.refreshTokenHash);
-    if (!isValid) {
-      throw new UnauthorizedException('Token de renovação inválido');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const new_refresh_token = await this.generateRefreshToken(user);
-
-    return { access_token, refresh_token: new_refresh_token };
   }
 
   async generateRefreshToken(user: User): Promise<string> {
@@ -102,10 +63,28 @@ export class AuthService implements IAuthService {
     return refreshToken;
   }
 
+  async refreshToken(refreshToken: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+  }> {
+    const user = await this.usersService.findByRefreshToken(refreshToken);
+    if (!user) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const new_refresh_token = await this.generateRefreshToken(user);
+    return {
+      access_token,
+      refresh_token: new_refresh_token,
+    };
+  }
+
   async invalidateRefreshToken(userId: string): Promise<void> {
+    this.logger.log(`Invalidando refresh token para usuário ID: ${userId}`);
     await this.usersService.update(userId, { refreshTokenHash: null });
     this.logger.log(
-      `Token de renovação invalidado para o usuário ID: ${userId}`,
+      `Refresh token invalidado com sucesso para usuário ID: ${userId}`,
     );
   }
 
@@ -117,22 +96,15 @@ export class AuthService implements IAuthService {
     }
     const resetToken = uuidv4();
     const resetTokenHash = await bcrypt.hash(resetToken, 10);
-    const expires = new Date(Date.now() + 1 * 60 * 1000);
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
-    this.logger.log(
-      `Gerando token de redefinição para o usuário ID: ${user.id}`,
-    );
     await this.usersService.update(user.id, {
       resetPasswordToken: resetTokenHash,
       resetPasswordExpires: expires,
     });
     try {
       await this.mailService.sendPasswordResetEmail(user.email, resetToken);
-      this.logger.log(`E-mail de redefinição enviado para: ${user.email}`);
     } catch (error) {
-      this.logger.error(
-        `Falha ao enviar e-mail de redefinição para ${user.email}: ${error.message}`,
-      );
       throw new Error(
         `Falha ao enviar e-mail de redefinição: ${error.message}`,
       );
@@ -142,24 +114,17 @@ export class AuthService implements IAuthService {
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const user = await this.usersService.findByResetToken(token);
     if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
-      this.logger.warn(`Token de redefinição inválido ou ausente: ${token}`);
       throw new BadRequestException(
         'Token de redefinição inválido ou expirado',
       );
     }
 
     if (user.resetPasswordExpires < new Date()) {
-      this.logger.warn(
-        `Token de redefinição expirado para o usuário ID: ${user.id}`,
-      );
       throw new BadRequestException('Token de redefinição expirado');
     }
 
     const isValid = await bcrypt.compare(token, user.resetPasswordToken);
     if (!isValid) {
-      this.logger.warn(
-        `Token de redefinição inválido para o usuário ID: ${user.id}`,
-      );
       throw new BadRequestException('Token de redefinição inválido');
     }
 
@@ -169,8 +134,23 @@ export class AuthService implements IAuthService {
       resetPasswordToken: null,
       resetPasswordExpires: null,
     });
-    this.logger.log(
-      `Senha redefinida com sucesso para o usuário ID: ${user.id}`,
-    );
+  }
+
+  async validateResetToken(token: string): Promise<void> {
+    const user = await this.usersService.findByResetToken(token);
+    if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
+      throw new BadRequestException(
+        'Token de redefinição inválido ou expirado',
+      );
+    }
+
+    if (user.resetPasswordExpires < new Date()) {
+      throw new BadRequestException('Token de redefinição expirado');
+    }
+
+    const isValid = await bcrypt.compare(token, user.resetPasswordToken);
+    if (!isValid) {
+      throw new BadRequestException('Token de redefinição inválido');
+    }
   }
 }

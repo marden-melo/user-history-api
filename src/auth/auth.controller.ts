@@ -1,4 +1,3 @@
-// auth.controller.ts
 import {
   Controller,
   Post,
@@ -84,7 +83,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
     return result;
@@ -120,7 +119,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
     return result;
@@ -156,17 +155,9 @@ export class AuthController {
     description: 'E-mail de redefinição enviado (se e-mail existir)',
   })
   async forgotPassword(@Body('email') email: string): Promise<void> {
-    this.logger.log(
-      `Recebida requisição de redefinição de senha para: ${email}`,
-    );
     try {
       await this.authService.forgotPassword(email);
-      this.logger.log(`Processo de redefinição concluído para: ${email}`);
     } catch (error) {
-      this.logger.error(
-        `Erro ao processar redefinição de senha para ${email}: ${error.message}`,
-        error.stack,
-      );
       throw error;
     }
   }
@@ -177,8 +168,6 @@ export class AuthController {
   @ApiBody({ type: ResetPasswordDto })
   @ApiResponse({ status: 204, description: 'Senha redefinida com sucesso' })
   async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
-    this.logger.log(`Recebida requisição de redefinição de senha com token`);
     await this.authService.resetPassword(body.token, body.password);
-    this.logger.log(`Senha redefinida com sucesso`);
   }
 }

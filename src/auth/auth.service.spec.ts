@@ -8,7 +8,7 @@ import { UserRole } from '../user/users.entity';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { UserResponseDto } from 'user/dto/userDTO';
+import { UserResponseDto } from '../user/dto/userDTO';
 import { plainToClass } from 'class-transformer';
 
 describe('AuthService', () => {
@@ -28,6 +28,7 @@ describe('AuthService', () => {
             findById: jest.fn(),
             update: jest.fn(),
             findByResetToken: jest.fn(),
+            findByRefreshToken: jest.fn(),
           },
         },
         {
@@ -66,6 +67,8 @@ describe('AuthService', () => {
         refreshTokenHash: null,
         resetPasswordToken: null,
         resetPasswordExpires: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       const resetToken = uuidv4();
@@ -102,6 +105,44 @@ describe('AuthService', () => {
       expect(usersService.update).not.toHaveBeenCalled();
       expect(mailService.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
+
+    it('deve lançar erro se o envio de e-mail falhar', async () => {
+      const user: User = {
+        id: '1',
+        name: 'João',
+        email: 'joao@example.com',
+        password: 'hashed',
+        role: UserRole.USER,
+        refreshTokenHash: null,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usersService.findByEmail.mockResolvedValue(user);
+      usersService.update.mockResolvedValue(
+        plainToClass(UserResponseDto, user),
+      );
+      mailService.sendPasswordResetEmail.mockRejectedValue(
+        new Error('Erro no servidor de e-mail'),
+      );
+
+      await expect(
+        service.forgotPassword('joao@example.com'),
+      ).rejects.toThrowError(
+        'Falha ao enviar e-mail de redefinição: Erro no servidor de e-mail',
+      );
+      expect(usersService.findByEmail).toHaveBeenCalledWith('joao@example.com');
+      expect(usersService.update).toHaveBeenCalledWith(user.id, {
+        resetPasswordToken: expect.any(String),
+        resetPasswordExpires: expect.any(Date),
+      });
+      expect(mailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        'joao@example.com',
+        expect.any(String),
+      );
+    });
   });
 
   describe('resetPassword', () => {
@@ -115,6 +156,8 @@ describe('AuthService', () => {
         refreshTokenHash: null,
         resetPasswordToken: await bcrypt.hash('reset-token', 10),
         resetPasswordExpires: new Date(Date.now() + 10 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       usersService.findByResetToken.mockResolvedValue(user);
@@ -134,8 +177,8 @@ describe('AuthService', () => {
       );
       expect(usersService.update).toHaveBeenCalledWith(user.id, {
         password: expect.any(String),
-        resetPasswordToken: undefined,
-        resetPasswordExpires: undefined,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
       });
     });
 
@@ -145,7 +188,7 @@ describe('AuthService', () => {
       await expect(
         service.resetPassword('invalid-token', 'NovaSenha@123'),
       ).rejects.toThrowError(
-        new BadRequestException('Invalid or expired reset token'),
+        new BadRequestException('Token de redefinição inválido ou expirado'),
       );
       expect(usersService.findByResetToken).toHaveBeenCalledWith(
         'invalid-token',
@@ -163,6 +206,8 @@ describe('AuthService', () => {
         refreshTokenHash: null,
         resetPasswordToken: await bcrypt.hash('reset-token', 10),
         resetPasswordExpires: new Date(Date.now() - 10 * 60 * 1000), // Expirado
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       usersService.findByResetToken.mockResolvedValue(user);
@@ -170,10 +215,141 @@ describe('AuthService', () => {
       await expect(
         service.resetPassword('reset-token', 'NovaSenha@123'),
       ).rejects.toThrowError(
-        new BadRequestException('Reset token has expired'),
+        new BadRequestException('Token de redefinição expirado'),
       );
       expect(usersService.findByResetToken).toHaveBeenCalledWith('reset-token');
       expect(usersService.update).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar exceção se o token não corresponder', async () => {
+      const user: User = {
+        id: '1',
+        name: 'João',
+        email: 'joao@example.com',
+        password: 'hashed',
+        role: UserRole.USER,
+        refreshTokenHash: null,
+        resetPasswordToken: await bcrypt.hash('other-token', 10),
+        resetPasswordExpires: new Date(Date.now() + 10 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usersService.findByResetToken.mockResolvedValue(user);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
+
+      await expect(
+        service.resetPassword('reset-token', 'NovaSenha@123'),
+      ).rejects.toThrowError(
+        new BadRequestException('Token de redefinição inválido'),
+      );
+      expect(usersService.findByResetToken).toHaveBeenCalledWith('reset-token');
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'reset-token',
+        user.resetPasswordToken,
+      );
+      expect(usersService.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateResetToken', () => {
+    it('deve validar um token de redefinição válido', async () => {
+      const user: User = {
+        id: '1',
+        name: 'João',
+        email: 'joao@example.com',
+        password: 'hashed',
+        role: UserRole.USER,
+        refreshTokenHash: null,
+        resetPasswordToken: await bcrypt.hash('reset-token', 10),
+        resetPasswordExpires: new Date(Date.now() + 10 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usersService.findByResetToken.mockResolvedValue(user);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
+
+      await expect(
+        service.validateResetToken('reset-token'),
+      ).resolves.toBeUndefined();
+      expect(usersService.findByResetToken).toHaveBeenCalledWith('reset-token');
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'reset-token',
+        user.resetPasswordToken,
+      );
+    });
+
+    it('deve lançar exceção se o token for inválido', async () => {
+      usersService.findByResetToken.mockResolvedValue(null);
+
+      await expect(
+        service.validateResetToken('invalid-token'),
+      ).rejects.toThrowError(
+        new BadRequestException('Token de redefinição inválido ou expirado'),
+      );
+      expect(usersService.findByResetToken).toHaveBeenCalledWith(
+        'invalid-token',
+      );
+    });
+
+    it('deve lançar exceção se o token estiver expirado', async () => {
+      const user: User = {
+        id: '1',
+        name: 'João',
+        email: 'joao@example.com',
+        password: 'hashed',
+        role: UserRole.USER,
+        refreshTokenHash: null,
+        resetPasswordToken: await bcrypt.hash('reset-token', 10),
+        resetPasswordExpires: new Date(Date.now() - 10 * 60 * 1000), // Expirado
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usersService.findByResetToken.mockResolvedValue(user);
+
+      await expect(
+        service.validateResetToken('reset-token'),
+      ).rejects.toThrowError(
+        new BadRequestException('Token de redefinição expirado'),
+      );
+      expect(usersService.findByResetToken).toHaveBeenCalledWith('reset-token');
+    });
+
+    it('deve lançar exceção se o token não corresponder', async () => {
+      const user: User = {
+        id: '1',
+        name: 'João',
+        email: 'joao@example.com',
+        password: 'hashed',
+        role: UserRole.USER,
+        refreshTokenHash: null,
+        resetPasswordToken: await bcrypt.hash('other-token', 10),
+        resetPasswordExpires: new Date(Date.now() + 10 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usersService.findByResetToken.mockResolvedValue(user);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
+
+      await expect(
+        service.validateResetToken('reset-token'),
+      ).rejects.toThrowError(
+        new BadRequestException('Token de redefinição inválido'),
+      );
+      expect(usersService.findByResetToken).toHaveBeenCalledWith('reset-token');
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'reset-token',
+        user.resetPasswordToken,
+      );
     });
   });
 });

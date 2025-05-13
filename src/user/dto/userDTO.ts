@@ -1,15 +1,53 @@
 import { Exclude, Expose } from 'class-transformer';
-import {
-  IsString,
-  IsEmail,
-  IsEnum,
-  MinLength,
-  Matches,
-  IsOptional,
-  IsDate,
-} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../users.entity';
+import {
+  IsDate,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
+
+export class UserResponseDto {
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+
+  @ApiProperty()
+  @Expose()
+  email: string;
+
+  @ApiProperty({ enum: UserRole })
+  @Expose()
+  role: UserRole;
+
+  @ApiProperty()
+  @Expose()
+  createdAt: Date;
+
+  @ApiProperty()
+  @Expose()
+  updatedAt: Date;
+
+  @Exclude()
+  password: string;
+
+  @Exclude()
+  refreshTokenHash: string | null;
+
+  @Exclude()
+  resetPasswordToken: string | null;
+
+  @Exclude()
+  resetPasswordExpires: Date | null;
+}
 
 export class CreateUserDto {
   @ApiProperty()
@@ -59,45 +97,15 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
-  refreshTokenHash?: string;
+  refreshTokenHash?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  resetPasswordToken?: string;
+  resetPasswordToken?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsDate()
-  resetPasswordExpires?: Date;
-}
-
-export class UserResponseDto {
-  @ApiProperty()
-  @Expose()
-  id: string;
-
-  @ApiProperty()
-  @Expose()
-  name: string;
-
-  @ApiProperty()
-  @Expose()
-  email: string;
-
-  @ApiProperty({ enum: UserRole })
-  @Expose()
-  role: UserRole;
-
-  @Exclude()
-  password: string;
-
-  @Exclude()
-  refreshTokenHash: string;
-
-  @Exclude()
-  resetPasswordToken: string;
-
-  @Exclude()
-  resetPasswordExpires: Date;
+  resetPasswordExpires?: Date | null;
 }
