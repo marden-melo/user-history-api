@@ -56,10 +56,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Buscar usuário por ID' })
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.findById(id);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const user = await this.usersService.findByIdDto(id);
     return user;
   }
 

@@ -35,16 +35,24 @@ export class UsersService {
 
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersRepository.find();
-    return plainToClass(UserResponseDto, users, {
+    console.log('UsersService.findAll - Usuários brutos:', users); // Log para depuração
+    const transformed = plainToClass(UserResponseDto, users, {
       excludeExtraneousValues: true,
     });
+    console.log('UsersService.findAll - Usuários transformados:', transformed); // Log para depuração
+    return transformed;
   }
 
-  async findById(id: string): Promise<UserResponseDto> {
+  async findById(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    return user;
+  }
+
+  async findByIdDto(id: string): Promise<UserResponseDto> {
+    const user = await this.findById(id);
     return plainToClass(UserResponseDto, user, {
       excludeExtraneousValues: true,
     });

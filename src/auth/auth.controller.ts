@@ -1,3 +1,4 @@
+// auth.controller.ts
 import {
   Controller,
   Post,
@@ -6,6 +7,7 @@ import {
   Request,
   UseGuards,
   Logger,
+  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserResponseDto } from '../user/dto/userDTO';
@@ -19,7 +21,8 @@ import {
 } from '@nestjs/swagger';
 import { LoginDto } from './dto/loginDTO';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { Request as ExpressRequest } from 'express';
+import { Request as ExpressRequest, Response } from 'express';
+import { UnauthorizedException } from '@shared/errors/exceptions/unauthorized.exception';
 
 class ForgotPasswordDto {
   @ApiProperty({ example: 'usuario@email.com' })
@@ -35,7 +38,6 @@ class ResetPasswordDto {
 
 interface AuthenticatedRequest extends ExpressRequest {
   user?: { id: string; email: string; role: string };
-  body: { refresh_token: string };
 }
 
 @ApiTags('auth')
@@ -65,27 +67,32 @@ export class AuthController {
       },
     },
   })
-  async login(@Body() loginDto: LoginDto): Promise<{
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{
     access_token: string;
     refresh_token: string;
     user: UserResponseDto;
   }> {
     this.logger.log(`Requisição de login recebida para: ${loginDto.email}`);
-    return this.authService.login(loginDto.email, loginDto.password);
+    const result = await this.authService.login(
+      loginDto.email,
+      loginDto.password,
+    );
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+    return result;
   }
 
   @Post('refresh')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @HttpCode(200)
   @ApiOperation({ summary: 'Renovar access token usando refresh token' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        refresh_token: { type: 'string', example: 'refresh.token.aqui' },
-      },
-    },
-  })
   @ApiResponse({
     status: 200,
     description: 'Tokens renovados com sucesso',
@@ -97,14 +104,47 @@ export class AuthController {
     },
   })
   async refresh(
+    @Request() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+  }> {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token não fornecido');
+    }
+    this.logger.log(`Requisição de renovação de token com refresh_token`);
+    const result = await this.authService.refreshToken(refreshToken);
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+    return result;
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Fazer logout e invalidar refresh token' })
+  @ApiResponse({ status: 204, description: 'Logout realizado com sucesso' })
+  @HttpCode(204)
+  async logout(
     @Request() req: AuthenticatedRequest,
-  ): Promise<{ access_token: string; refresh_token: string }> {
-    this.logger.log(
-      `Requisição de renovação de token para usuário ID: ${req.user?.id}`,
-    );
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    this.logger.log(`Logout requisitado para usuário ID: ${req.user?.id}`);
     const userId = req.user!.id;
-    const refreshToken = req.body.refresh_token;
-    return this.authService.refreshToken(userId, refreshToken);
+    await this.authService.invalidateRefreshToken(userId);
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
   }
 
   @Post('forgot-password')

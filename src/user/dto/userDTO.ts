@@ -1,4 +1,4 @@
-import { Exclude } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 import {
   IsString,
   IsEmail,
@@ -74,16 +74,21 @@ export class UpdateUserDto {
 
 export class UserResponseDto {
   @ApiProperty()
+  @Expose()
   id: string;
 
   @ApiProperty()
+  @Expose()
   name: string;
 
   @ApiProperty()
+  @Expose()
   email: string;
 
   @ApiProperty({ enum: UserRole })
+  @Expose()
   role: UserRole;
+
   @Exclude()
   password: string;
 

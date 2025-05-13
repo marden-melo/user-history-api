@@ -25,6 +25,8 @@ export class CaslGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
+    console.log('Usuário no CaslGuard:', user); // Log para depuração
+
     if (!user) {
       throw new ForbiddenException('Usuário não autenticado');
     }
@@ -36,6 +38,12 @@ export class CaslGuard implements CanActivate {
     const subject =
       this.reflector.get<string>('subject', context.getHandler()) || 'User';
     const fields = this.reflector.get<string[]>('fields', context.getHandler());
+
+    console.log('Verificando permissão:', {
+      action,
+      subject,
+      userRole: user.role,
+    }); // Log adicional
 
     // Validação para GET /users/:id
     if (action === 'read' && subject === 'User' && request.params.id) {
@@ -74,7 +82,9 @@ export class CaslGuard implements CanActivate {
     }
 
     // Validação para POST /users e DELETE /users/:id
-    if (ability.can(action, subject)) {
+    const canPerform = ability.can(action, subject);
+    console.log('Permissão concedida:', canPerform); // Log para resultado
+    if (canPerform) {
       return true;
     }
 

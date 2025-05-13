@@ -14,7 +14,12 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.enableCors();
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   // Configuração Swagger
   const config = new DocumentBuilder()
@@ -34,6 +39,6 @@ async function bootstrap() {
     console.log('Database seed completed.');
   }
 
-  await app.listen(configService.get<number>('PORT', 3000));
+  await app.listen(configService.get<number>('PORT', 3333));
 }
 bootstrap();
