@@ -1,4 +1,3 @@
-// auth.service.ts
 import {
   Injectable,
   UnauthorizedException,
@@ -14,8 +13,28 @@ import { UserResponseDto } from '../user/dto/userDTO';
 import { v4 as uuidv4 } from 'uuid';
 import { MailService } from '@shared/email/mail.service';
 
+interface IAuthService {
+  validateUser(email: string, password: string): Promise<User | null>;
+  login(
+    email: string,
+    password: string,
+  ): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: UserResponseDto;
+  }>;
+  refreshToken(refreshToken: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+  }>;
+  generateRefreshToken(user: User): Promise<string>;
+  invalidateRefreshToken(userId: string): Promise<void>;
+  forgotPassword(email: string): Promise<void>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
+}
+
 @Injectable()
-export class AuthService {
+export class AuthService implements IAuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -42,7 +61,7 @@ export class AuthService {
   }> {
     const user = await this.validateUser(email, password);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciais inválidas');
     }
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
@@ -59,14 +78,14 @@ export class AuthService {
     access_token: string;
     refresh_token: string;
   }> {
-    const user = await this.usersService.findByResetToken(refreshToken);
+    const user = await this.usersService.findByRefreshToken(refreshToken);
     if (!user || !user.refreshTokenHash) {
-      throw new UnauthorizedException('Invalid or missing refresh token');
+      throw new UnauthorizedException('Token de renovação inválido ou ausente');
     }
 
     const isValid = await bcrypt.compare(refreshToken, user.refreshTokenHash);
     if (!isValid) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Token de renovação inválido');
     }
 
     const payload = { sub: user.id, email: user.email, role: user.role };
@@ -85,46 +104,73 @@ export class AuthService {
 
   async invalidateRefreshToken(userId: string): Promise<void> {
     await this.usersService.update(userId, { refreshTokenHash: null });
-    this.logger.log(`Refresh token invalidated for user ID: ${userId}`);
+    this.logger.log(
+      `Token de renovação invalidado para o usuário ID: ${userId}`,
+    );
   }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      return; // Silently return to avoid leaking user existence
+      this.logger.log(`Nenhum usuário encontrado para o e-mail: ${email}`);
+      return;
     }
     const resetToken = uuidv4();
     const resetTokenHash = await bcrypt.hash(resetToken, 10);
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    const expires = new Date(Date.now() + 1 * 60 * 1000);
 
+    this.logger.log(
+      `Gerando token de redefinição para o usuário ID: ${user.id}`,
+    );
     await this.usersService.update(user.id, {
       resetPasswordToken: resetTokenHash,
       resetPasswordExpires: expires,
     });
     try {
       await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+      this.logger.log(`E-mail de redefinição enviado para: ${user.email}`);
     } catch (error) {
-      throw new Error(`Failed to send reset email: ${error.message}`);
+      this.logger.error(
+        `Falha ao enviar e-mail de redefinição para ${user.email}: ${error.message}`,
+      );
+      throw new Error(
+        `Falha ao enviar e-mail de redefinição: ${error.message}`,
+      );
     }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const user = await this.usersService.findByResetToken(token);
     if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
-      throw new BadRequestException('Invalid or expired reset token');
+      this.logger.warn(`Token de redefinição inválido ou ausente: ${token}`);
+      throw new BadRequestException(
+        'Token de redefinição inválido ou expirado',
+      );
     }
+
     if (user.resetPasswordExpires < new Date()) {
-      throw new BadRequestException('Reset token has expired');
+      this.logger.warn(
+        `Token de redefinição expirado para o usuário ID: ${user.id}`,
+      );
+      throw new BadRequestException('Token de redefinição expirado');
     }
+
     const isValid = await bcrypt.compare(token, user.resetPasswordToken);
     if (!isValid) {
-      throw new BadRequestException('Invalid reset token');
+      this.logger.warn(
+        `Token de redefinição inválido para o usuário ID: ${user.id}`,
+      );
+      throw new BadRequestException('Token de redefinição inválido');
     }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await this.usersService.update(user.id, {
       password: passwordHash,
       resetPasswordToken: null,
       resetPasswordExpires: null,
     });
+    this.logger.log(
+      `Senha redefinida com sucesso para o usuário ID: ${user.id}`,
+    );
   }
 }

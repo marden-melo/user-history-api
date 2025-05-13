@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, MoreThan, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { plainToClass } from 'class-transformer';
 import { User } from './users.entity';
@@ -20,7 +20,7 @@ export class UsersService {
   async create(userData: CreateUserDto): Promise<UserResponseDto> {
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
-      throw new BadRequestException('Email already in use');
+      throw new BadRequestException('E-mail já está em uso');
     }
     const hashedPassword = await bcrypt.hash(userData.password, 10);
     const user = this.usersRepository.create({
@@ -35,18 +35,15 @@ export class UsersService {
 
   async findAll(): Promise<UserResponseDto[]> {
     const users = await this.usersRepository.find();
-    console.log('UsersService.findAll - Usuários brutos:', users); // Log para depuração
-    const transformed = plainToClass(UserResponseDto, users, {
+    return plainToClass(UserResponseDto, users, {
       excludeExtraneousValues: true,
     });
-    console.log('UsersService.findAll - Usuários transformados:', transformed); // Log para depuração
-    return transformed;
   }
 
   async findById(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuário não encontrado');
     }
     return user;
   }
@@ -62,8 +59,26 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async findByResetToken(token: string): Promise<User | null> {
+  async findByRefreshToken(refreshToken: string): Promise<User | null> {
     const users = await this.usersRepository.find();
+    for (const user of users) {
+      if (
+        user.refreshTokenHash &&
+        (await bcrypt.compare(refreshToken, user.refreshTokenHash))
+      ) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  async findByResetToken(token: string): Promise<User | null> {
+    const users = await this.usersRepository.find({
+      where: {
+        resetPasswordToken: Not(IsNull()),
+        resetPasswordExpires: MoreThan(new Date()),
+      },
+    });
     for (const user of users) {
       if (
         user.resetPasswordToken &&
@@ -81,7 +96,7 @@ export class UsersService {
   ): Promise<UserResponseDto> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuário não encontrado');
     }
 
     if (updateData.password) {
@@ -91,14 +106,14 @@ export class UsersService {
     if (updateData.email && updateData.email !== user.email) {
       const existingUser = await this.findByEmail(updateData.email);
       if (existingUser && existingUser.id !== id) {
-        throw new BadRequestException('Email already in use');
+        throw new BadRequestException('E-mail já está em uso');
       }
     }
 
     await this.usersRepository.update(id, updateData);
     const updatedUser = await this.usersRepository.findOne({ where: { id } });
     if (!updatedUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Usuário não encontrado');
     }
     return plainToClass(UserResponseDto, updatedUser, {
       excludeExtraneousValues: true,
@@ -106,7 +121,7 @@ export class UsersService {
   }
 
   async delete(id: string): Promise<void> {
-    const user = await this.findById(id);
+    await this.findById(id);
     await this.usersRepository.delete(id);
   }
 }
