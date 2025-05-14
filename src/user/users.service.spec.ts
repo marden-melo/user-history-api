@@ -7,7 +7,6 @@ import { BadRequestException } from '@nestjs/common';
 import { CreateUserDto, UserResponseDto } from './dto/userDTO';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from './users.entity';
-import { plainToClass } from 'class-transformer';
 
 describe('UsersService', () => {
   let service: UsersService;

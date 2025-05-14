@@ -11,7 +11,7 @@ import { UsersService } from '../user/users.service';
 import { User } from '../user/users.entity';
 import { UserResponseDto } from '../user/dto/userDTO';
 import { v4 as uuidv4 } from 'uuid';
-import { MailService } from '@shared/email/mail.service';
+import { MailService } from '../shared/email/mail.service';
 
 @Injectable()
 export class AuthService {
