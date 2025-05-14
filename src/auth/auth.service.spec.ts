@@ -8,7 +8,6 @@ import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { User } from '../user/users.entity';
 import { UserResponseDto } from '../user/dto/userDTO';
 import { UserRole } from '../user/users.entity';
-import { v4 as uuidv4 } from 'uuid';
 import { plainToClass } from 'class-transformer';
 
 jest.mock('bcrypt');
@@ -55,7 +54,6 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService) as jest.Mocked<JwtService>;
     mailService = module.get(MailService) as jest.Mocked<MailService>;
 
-    // Mock bcrypt methods
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-value');
   });
@@ -306,7 +304,7 @@ describe('AuthService', () => {
         role: UserRole.USER,
         refreshTokenHash: null,
         resetPasswordToken: 'hashed-reset-token',
-        resetPasswordExpires: new Date(Date.now() - 60 * 1000), // Expired
+        resetPasswordExpires: new Date(Date.now() - 60 * 1000),
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -1,8 +1,7 @@
-// src/data-source.ts
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 
-config(); // Carrega o .env
+config();
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
