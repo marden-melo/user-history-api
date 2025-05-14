@@ -25,13 +25,10 @@ export class CaslGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
-    console.log('Usuário no CaslGuard:', user);
-
     if (!user) {
       throw new ForbiddenException('Usuário não autenticado');
     }
     if (!user.role) {
-      console.log('CaslGuard - Role indefinido para usuário:', user);
       throw new ForbiddenException('Role do usuário não definido');
     }
 
@@ -42,28 +39,16 @@ export class CaslGuard implements CanActivate {
     const subject =
       this.reflector.get<string>('subject', context.getHandler()) || 'User';
 
-    console.log('Verificando permissão:', {
-      action,
-      subject,
-      userRole: user.role,
-      userId: user.id,
-    });
-
-    // Read single user
     if (action === 'read' && subject === 'User' && request.params.id) {
       const targetUser = await this.usersService.findById(request.params.id);
       if (!targetUser) {
         throw new NotFoundException('User not found');
       }
       const canRead = ability.can(action, { ...targetUser, __entity: 'User' });
-      console.log('Permissão para leitura de usuário:', {
-        canRead,
-        targetUserId: targetUser.id,
-      });
+
       return canRead;
     }
 
-    // Update user
     if (action === 'update' && subject === 'User' && request.params.id) {
       const targetUser = await this.usersService.findById(request.params.id);
       if (!targetUser) {
@@ -71,22 +56,13 @@ export class CaslGuard implements CanActivate {
       }
       const updateData: UpdateUserDto = request.body;
 
-      // Check permission for each field
       for (const field of Object.keys(updateData) as (keyof UpdateUserDto)[]) {
-        // Check field-level permission
         const canUpdateField = ability.can('update', subject, field);
-        // For regular users, restrict to their own profile
         const canUpdate =
           user.role === 'user'
             ? canUpdateField && user.id === targetUser.id
             : canUpdateField;
-        console.log(`Verificando campo '${field}':`, {
-          canUpdate,
-          canUpdateField,
-          targetUserId: targetUser.id,
-          userId: user.id,
-          userRole: user.role,
-        });
+
         if (!canUpdate) {
           console.log(`Permissão negada para o campo '${field}'`);
           throw new ForbiddenException(
@@ -97,19 +73,15 @@ export class CaslGuard implements CanActivate {
       return true;
     }
 
-    // List users
     if (action === 'read' && subject === 'User' && !request.params.id) {
       const canRead = ability.can(action, subject);
-      console.log('Permissão para listagem:', { userRole: user.role, canRead });
       if (!canRead) {
         throw new ForbiddenException("Ação 'read' em 'User' não permitida");
       }
       return true;
     }
 
-    // Create or delete
     const canPerform = ability.can(action, subject);
-    console.log('Permissão concedida:', { action, subject, canPerform });
     if (canPerform) {
       return true;
     }
